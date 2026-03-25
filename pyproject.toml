@@ -13,6 +13,7 @@ authors = [
 ]
 dependencies = [
     "dbt-core>=1.11.7",
+    "dbt-extractor>=0.6.0",
     "dbt-postgres>=1.10.0",
     "dlt>=1.24.0",
     "loguru>=0.7.2",
@@ -81,4 +82,4 @@ asyncio_mode = "auto"
 omit = ["tests/*"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["dbt-core", "dbt-postgres", "dlt", "requests", "pydantic"]
+DEP002 = ["dbt-extractor", "dbt-core", "dbt-postgres", "dlt", "requests", "pydantic"]

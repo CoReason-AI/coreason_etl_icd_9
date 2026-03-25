@@ -136,6 +136,7 @@ name = "coreason-etl-icd-9"
 source = { editable = "." }
 dependencies = [
     { name = "dbt-core" },
+    { name = "dbt-extractor" },
     { name = "dbt-postgres" },
     { name = "dlt" },
     { name = "loguru" },
@@ -167,6 +168,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "dbt-core", specifier = ">=1.11.7" },
+    { name = "dbt-extractor", specifier = ">=0.6.0" },
     { name = "dbt-postgres", specifier = ">=1.10.0" },
     { name = "dlt", specifier = ">=1.24.0" },
     { name = "loguru", specifier = ">=0.7.2" },
