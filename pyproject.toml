@@ -44,7 +44,8 @@ dev = [
     "mkdocstrings-python",
     "types-pyyaml>=6.0.12.20250915",
     "tzdata>=2025.3",
-    "pytest-xdist>=3.6.1"
+    "pytest-xdist>=3.6.1",
+    "types-requests"
 ]
 
 [tool.hatch.build.targets.wheel]

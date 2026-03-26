@@ -39,7 +39,10 @@ class ICD9ConfigManifest(BaseSettings):
         default=HttpUrl(
             "https://www.cms.gov/Medicare/Coding/ICD9ProviderDiagnosticCodes/Downloads/ICD-9-CM-v32-master-descriptions.zip"
         ),
-        description="The target URL to download the CMS ICD-9 master ZIP file.",
+        description=(
+            "The target URL to download the CMS ICD-9 master ZIP file, "
+            "containing both Diagnosis (DX) and Procedure (SG) descriptions."
+        ),
     )
 
     namespace_uuid: UUID = Field(
