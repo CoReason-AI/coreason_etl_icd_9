@@ -3,67 +3,68 @@ from pathlib import Path
 import yaml
 
 
-def test_dbt_profiles_structure() -> None:
-    """Validates the dbt profiles.yml adheres to strict PG* environment variables requirements."""
-    profiles_path = Path("src/coreason_etl_icd_9/dbt/profiles.yml")
-    assert profiles_path.exists(), "profiles.yml is missing from the designated directory."
+def test_staging_schema_yml_structure() -> None:
+    """Verify that staging schema.yml exists and has the required structure and tests."""
+    schema_path = Path("src/coreason_etl_icd_9/dbt/models/staging/schema.yml")
+    assert schema_path.exists(), "schema.yml for staging models must exist"
 
-    with open(profiles_path) as f:
-        content = f.read()
-        # Filter out block comments manually (docstrings not valid in YAML)
-        lines = []
-        in_docstring = False
-        for line in content.splitlines():
-            if line.strip().startswith('"""'):
-                in_docstring = not in_docstring
-                continue
-            if not in_docstring:
-                lines.append(line)
-        yaml_content = "\n".join(lines)
-        profiles = yaml.safe_load(yaml_content)
+    with open(schema_path) as f:
+        data = yaml.safe_load(f)
 
-    assert "coreason_etl_icd9" in profiles
+    assert "models" in data
+    models = {m["name"]: m for m in data["models"]}
 
-    project_profile = profiles["coreason_etl_icd9"]
-    assert project_profile["target"] == "dev"
-    assert "outputs" in project_profile
-    assert "dev" in project_profile["outputs"]
+    # Check silver_icd9_ontology
+    assert "silver_icd9_ontology" in models
+    model = models["silver_icd9_ontology"]
 
-    dev_config = project_profile["outputs"]["dev"]
-    assert dev_config["type"] == "postgres"
+    columns = {c["name"]: c for c in model.get("columns", [])}
 
-    # Verify environment variables logic is present
-    assert "{{ env_var('PGHOST'" in dev_config["host"]
-    assert "{{ env_var('PGPORT'" in dev_config["port"]
-    assert "{{ env_var('PGUSER'" in dev_config["user"]
-    assert "{{ env_var('PGPASSWORD'" in dev_config["password"]
-    assert "{{ env_var('PGDATABASE'" in dev_config["dbname"]
+    # Check specific fields and tests as per FRD/TRD
+    assert "coreason_id" in columns
+    assert set(columns["coreason_id"].get("tests", [])) == {"unique", "not_null"}
+
+    assert "formatted_icd9_code" in columns
+    assert "not_null" in columns["formatted_icd9_code"].get("tests", [])
+
+    assert "raw_code_string" in columns
+
+    assert "long_description" in columns
+    assert "not_null" in columns["long_description"].get("tests", [])
+
+    assert "domain_type" in columns
+    domain_tests = columns["domain_type"].get("tests", [])
+    assert "not_null" in domain_tests
+    # Check accepted values
+    accepted = [t for t in domain_tests if isinstance(t, dict) and "accepted_values" in t]
+    assert len(accepted) == 1
+    assert set(accepted[0]["accepted_values"]["values"]) == {"Diagnosis", "Procedure"}
 
 
-def test_dbt_project_structure() -> None:
-    """Validates the dbt_project.yml settings."""
-    project_path = Path("src/coreason_etl_icd_9/dbt/dbt_project.yml")
-    assert project_path.exists(), "dbt_project.yml is missing from the designated directory."
+def test_marts_schema_yml_structure() -> None:
+    """Verify that marts schema.yml exists and has the required structure and tests."""
+    schema_path = Path("src/coreason_etl_icd_9/dbt/models/marts/schema.yml")
+    assert schema_path.exists(), "schema.yml for marts models must exist"
 
-    with open(project_path) as f:
-        content = f.read()
-        # Filter out block comments manually (docstrings not valid in YAML)
-        lines = []
-        in_docstring = False
-        for line in content.splitlines():
-            if line.strip().startswith('"""'):
-                in_docstring = not in_docstring
-                continue
-            if not in_docstring:
-                lines.append(line)
-        yaml_content = "\n".join(lines)
-        project = yaml.safe_load(yaml_content)
+    with open(schema_path) as f:
+        data = yaml.safe_load(f)
 
-    assert project["name"] == "coreason_etl_icd9"
-    assert project["profile"] == "coreason_etl_icd9"
-    assert "models" in project
-    assert "coreason_etl_icd9" in project["models"]
+    assert "models" in data
+    models = {m["name"]: m for m in data["models"]}
 
-    model_config = project["models"]["coreason_etl_icd9"]
-    assert model_config["staging"]["+schema"] == "silver"
-    assert model_config["marts"]["+schema"] == "gold"
+    # gold_icd9_clinical_index
+    assert "gold_icd9_clinical_index" in models
+    index_cols = {c["name"]: c for c in models["gold_icd9_clinical_index"].get("columns", [])}
+    assert "formatted_icd9_code" in index_cols
+    assert "not_null" in index_cols["formatted_icd9_code"].get("tests", [])
+    assert "unique" in index_cols["formatted_icd9_code"].get("tests", [])
+    assert "long_description" in index_cols
+    assert "not_null" in index_cols["long_description"].get("tests", [])
+
+    # gold_icd9_to_10_crosswalk_stub
+    assert "gold_icd9_to_10_crosswalk_stub" in models
+    crosswalk_cols = {c["name"]: c for c in models["gold_icd9_to_10_crosswalk_stub"].get("columns", [])}
+    assert "formatted_icd9_code" in crosswalk_cols
+    assert "not_null" in crosswalk_cols["formatted_icd9_code"].get("tests", [])
+    assert "target_icd10_code" in crosswalk_cols
+    assert "map_type_flag" in crosswalk_cols

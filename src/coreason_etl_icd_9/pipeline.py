@@ -24,7 +24,7 @@ from coreason_etl_icd_9.extractor import FILENAME_DX, FILENAME_SG, fetch_and_ext
 from coreason_etl_icd_9.utils.logger import logger
 
 
-@dlt.resource(name="icd9_cm_raw", write_disposition="replace", max_table_nesting=0)  # type: ignore[misc]
+@dlt.resource(name="icd9_cm_raw", write_disposition="replace", max_table_nesting=0)
 def generate_bronze_ingestion_manifold() -> Iterator[dict[str, Any]]:
     """
     Epistemic state ingestion intent for the ICD-9 raw codes.
