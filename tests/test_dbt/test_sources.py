@@ -3,53 +3,39 @@ from pathlib import Path
 import yaml
 
 
-def test_dbt_sources_structure() -> None:
-    """Validates the dbt sources.yml correctly maps to the bronze schema."""
-    sources_path = Path("src/coreason_etl_icd_9/dbt/models/staging/sources.yml")
-    assert sources_path.exists(), "sources.yml is missing from the designated staging directory."
+def test_staging_sources_yml_structure() -> None:
+    """Verify that sources.yml exists and has the required structure and tests."""
+    source_path = Path("src/coreason_etl_icd_9/dbt/models/staging/sources.yml")
+    assert source_path.exists(), "sources.yml for staging models must exist"
 
-    with open(sources_path) as f:
-        content = f.read()
-        lines = []
-        in_docstring = False
-        for line in content.splitlines():
-            if line.strip().startswith('"""'):
-                in_docstring = not in_docstring
-                continue
-            if not in_docstring:
-                lines.append(line)
-        yaml_content = "\n".join(lines)
-        sources_doc = yaml.safe_load(yaml_content)
+    with open(source_path) as f:
+        data = yaml.safe_load(f)
 
-    assert "sources" in sources_doc
-    sources = sources_doc["sources"]
-    assert len(sources) == 1
+    assert "sources" in data
+    sources = {s["name"]: s for s in data["sources"]}
 
-    bronze_source = sources[0]
-    assert bronze_source["name"] == "bronze"
-    assert bronze_source["schema"] == "bronze"
+    # Check bronze source
+    assert "bronze" in sources
+    source = sources["bronze"]
 
-    assert "tables" in bronze_source
-    tables = bronze_source["tables"]
-    assert len(tables) == 1
+    tables = {t["name"]: t for t in source.get("tables", [])}
 
-    icd9_table = tables[0]
-    assert icd9_table["name"] == "icd9_cm_raw"
+    # Check icd9_cm_raw
+    assert "icd9_cm_raw" in tables
+    table = tables["icd9_cm_raw"]
 
-    columns = {col["name"]: col for col in icd9_table["columns"]}
+    columns = {c["name"]: c for c in table.get("columns", [])}
+
+    # Check specific fields and tests as per source file
     assert "code_type" in columns
+    code_type_tests = columns["code_type"].get("tests", [])
+    assert "not_null" in code_type_tests
+    accepted = [t for t in code_type_tests if isinstance(t, dict) and "accepted_values" in t]
+    assert len(accepted) == 1
+    assert set(accepted[0]["accepted_values"]["values"]) == {"Diagnosis", "Procedure"}
+
     assert "raw_data" in columns
+    assert "not_null" in columns["raw_data"].get("tests", [])
 
-    code_type_col = columns["code_type"]
-    assert "tests" in code_type_col
-    assert "not_null" in code_type_col["tests"]
-
-    accepted_values_test = None
-    for test in code_type_col["tests"]:
-        if isinstance(test, dict) and "accepted_values" in test:
-            accepted_values_test = test["accepted_values"]
-            break
-
-    assert accepted_values_test is not None
-    assert "Diagnosis" in accepted_values_test["values"]
-    assert "Procedure" in accepted_values_test["values"]
+    assert "_dlt_load_id" in columns
+    assert "_dlt_id" in columns

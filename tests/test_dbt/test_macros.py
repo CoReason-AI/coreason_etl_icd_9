@@ -7,47 +7,16 @@ def render_macro(macro_name: str, **kwargs: str) -> str:
     """Helper to render a dbt macro strictly into a SQL string using Jinja2."""
     macro_dir = Path("src/coreason_etl_icd_9/dbt/macros")
     loader = jinja2.FileSystemLoader(macro_dir)
-    # Important: Do not use autoescape here because we want single quotes in our kwargs
-    # to be rendered directly into the SQL string without HTML escaping.
     env = jinja2.Environment(loader=loader)
 
-    template_str = f"""
-    {{% macro format_icd9_code(raw_code, domain_type) %}}
-    case
-        when {{{{ domain_type }}}} = 'Procedure' then
-            case
-                when length({{{{ raw_code }}}}) > 2 then
-                    substr({{{{ raw_code }}}}, 1, 2) || '.' || substr({{{{ raw_code }}}}, 3)
-                else {{{{ raw_code }}}}
-            end
-        when {{{{ domain_type }}}} = 'Diagnosis' then
-            case
-                when substring({{{{ raw_code }}}} from 1 for 1) = 'E' then
-                    case
-                        when length({{{{ raw_code }}}}) > 4 then
-                            substr({{{{ raw_code }}}}, 1, 4) || '.' || substr({{{{ raw_code }}}}, 5)
-                        else {{{{ raw_code }}}}
-                    end
-                else
-                    case
-                        when length({{{{ raw_code }}}}) > 3 then
-                            substr({{{{ raw_code }}}}, 1, 3) || '.' || substr({{{{ raw_code }}}}, 4)
-                        else {{{{ raw_code }}}}
-                    end
-            end
-        else {{{{ raw_code }}}}
-    end
-    {{% endmacro %}}
+    # We need to load all macros from the directory to support nesting
+    template_str = ""
+    for macro_file in macro_dir.glob("*.sql"):
+        with open(macro_file) as f:
+            template_str += f.read() + "\n"
 
-    {{% macro generate_coreason_id(raw_code, domain_type) %}}
-        uuid_generate_v5(
-            'a7cffe80-da93-4ef3-8bf2-e6ea241d7ee2'::uuid,
-            {{{{ format_icd9_code(raw_code, domain_type) }}}} || {{{{ domain_type }}}}
-        )
-    {{% endmacro %}}
-
-    {{{{ {macro_name}(**kwargs) }}}}
-    """
+    # We call the macro explicitly
+    template_str += f"\n{{{{ {macro_name}(**kwargs) }}}}"
 
     template = env.from_string(template_str)
     rendered = template.render(kwargs=kwargs)
@@ -60,7 +29,8 @@ def test_format_icd9_code_diagnosis() -> None:
     # 25000 -> 250.00
     sql = render_macro("format_icd9_code", raw_code="'25000'", domain_type="'Diagnosis'")
 
-    assert "when 'Diagnosis' = 'Diagnosis'" in sql
+    assert "when 'Diagnosis' = 'Procedure' then" in sql
+    assert "when 'Diagnosis' = 'Diagnosis' then" in sql
     assert "when length('25000') > 3 then substr('25000', 1, 3) || '.' || substr('25000', 4)" in sql
 
 
@@ -88,7 +58,7 @@ def test_format_icd9_code_v_code() -> None:
 def test_generate_coreason_id() -> None:
     sql = render_macro("generate_coreason_id", raw_code="'25000'", domain_type="'Diagnosis'")
     # Assert uuid_generate_v5 and the proper namespace are utilized
-    assert "uuid_generate_v5" in sql
-    assert "'a7cffe80-da93-4ef3-8bf2-e6ea241d7ee2'::uuid" in sql
+    assert "uuid_generate_v5(" in sql
+    assert "'a7cffe80-da93-4ef3-8bf2-e6ea241d7ee2'::uuid," in sql
     # It concats the formatted string with the domain type
     assert "|| 'Diagnosis'" in sql
