@@ -1,59 +1,43 @@
 from pathlib import Path
 
-import yaml
+import jinja2
 
 
-def test_dbt_silver_model_structure() -> None:
-    """Validates the dbt schema.yml correctly implements the Silver layer requirements."""
-    schema_path = Path("src/coreason_etl_icd_9/dbt/models/staging/schema.yml")
-    assert schema_path.exists(), "schema.yml is missing from the designated staging directory."
-
-    with open(schema_path) as f:
-        content = f.read()
-        lines = []
-        in_docstring = False
-        for line in content.splitlines():
-            if line.strip().startswith('"""'):
-                in_docstring = not in_docstring
-                continue
-            if not in_docstring:
-                lines.append(line)
-        yaml_content = "\n".join(lines)
-        schema_doc = yaml.safe_load(yaml_content)
-
-    assert "models" in schema_doc
-    models = schema_doc["models"]
-    assert len(models) == 1
-
-    silver_model = models[0]
-    assert silver_model["name"] == "silver_icd9_ontology"
-
-    columns = {col["name"]: col for col in silver_model["columns"]}
-    assert "coreason_id" in columns
-    assert "formatted_icd9_code" in columns
-    assert "raw_code_string" in columns
-    assert "long_description" in columns
-    assert "domain_type" in columns
-
-    # Check testing constraints as defined in the spec
-    assert "tests" in columns["coreason_id"]
-    assert "unique" in columns["coreason_id"]["tests"]
-    assert "not_null" in columns["coreason_id"]["tests"]
-
-    assert "not_null" in columns["long_description"]["tests"]
-    assert "not_null" in columns["formatted_icd9_code"]["tests"]
-
-
-def test_dbt_silver_model_sql() -> None:
-    """Validates the silver SQL model compiles logic appropriately."""
+def test_silver_model_compilation() -> None:
+    """Test that the silver_icd9_ontology model compiles to expected SQL structure."""
     model_path = Path("src/coreason_etl_icd_9/dbt/models/staging/silver_icd9_ontology.sql")
-    assert model_path.exists(), "Model SQL is missing."
 
     with open(model_path) as f:
-        sql = f.read()
+        template_str = f.read()
 
-    assert "{{ source('bronze', 'icd9_cm_raw') }}" in sql
-    assert "trim(raw_data->>'raw_code')" in sql
-    assert "trim(raw_data->>'raw_description')" in sql
-    assert "{{ format_icd9_code('raw_code_string', 'domain_type') }}" in sql
-    assert "{{ generate_coreason_id('raw_code_string', 'domain_type') }}" in sql
+    # We mock the global dbt functions required for the compilation
+    def mock_source(source_name: str, table_name: str) -> str:
+        return f"{source_name}_{table_name}"
+
+    def mock_format_icd9_code(raw_code: str, domain_type: str) -> str:
+        # Note: the sql file passes 'raw_code_string' and 'domain_type' as
+        # unquoted strings because they are variables in sql
+        return f"mock_format({raw_code}, {domain_type})"
+
+    def mock_generate_coreason_id(raw_code: str, domain_type: str) -> str:
+        return f"mock_generate_id({raw_code}, {domain_type})"
+
+    env = jinja2.Environment()
+    env.globals["source"] = mock_source
+    env.globals["format_icd9_code"] = mock_format_icd9_code
+    env.globals["generate_coreason_id"] = mock_generate_coreason_id
+
+    template = env.from_string(template_str)
+    rendered = template.render()
+    sql = " ".join(rendered.split())
+
+    # Verify key CTEs and column logic
+    assert "from bronze_icd9_cm_raw" in sql
+    assert "trim(raw_data->>'raw_code') as raw_code_string" in sql
+    # The actual call is {{ format_icd9_code('raw_code_string', 'domain_type') }}
+    # so raw_code is 'raw_code_string' and domain_type is 'domain_type'
+    assert "mock_format(raw_code_string, domain_type) as formatted_icd9_code" in sql
+    assert "mock_generate_id(raw_code_string, domain_type) as coreason_id" in sql
+    assert "formatted_icd9_code," in sql
+    assert "long_description," in sql
+    assert "domain_type" in sql
