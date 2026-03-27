@@ -5,6 +5,11 @@ models:
     description: >
       AGENT INSTRUCTION: This model implements the Silver tier logic for the ICD-9 ontology.
       It performs string trimming from JSONB data and injects the clinical decimal rules.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - formatted_icd9_code
+            - domain_type
     columns:
       - name: coreason_id
         description: "Deterministic UUIDv5 namespace identifier for the ontology concept."
