@@ -16,7 +16,9 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from coreason_etl_icd_9.main import run_dbt_command, run_pipeline
+
 
 @pytest.fixture
 def mock_subprocess_run() -> Iterator[MagicMock]:
@@ -121,35 +123,35 @@ def test_run_pipeline_dbt_failure(
     mock_sys_exit.assert_called_once_with(1)
     assert mock_subprocess_run.call_count == 1  # Fails on the first dbt command (deps)
 
-def test_main_block(
-    mock_subprocess_run: MagicMock,
-    mock_initialize_ingestion_topology: tuple[MagicMock, MagicMock],
-    mock_generate_bronze_ingestion_manifold: MagicMock,
-) -> None:
+def test_main_block() -> None:
     """Tests the standalone module execution."""
     import coreason_etl_icd_9.main
     with patch.object(coreason_etl_icd_9.main, "run_pipeline") as mock_run:
-        # Load the content
         with open(coreason_etl_icd_9.main.__file__) as f:
             code_text = f.read()
 
-        # Find the main block lines to execute in a controlled mocked environment
-        block_lines = []
-        in_block = False
-        for line in code_text.splitlines():
-            if line.startswith('if __name__ == "__main__":'):
-                in_block = True
-            if in_block:
-                block_lines.append(line)
-
-        # Replace the function call with mock
-        modified_block = "\n".join(block_lines).replace("run_pipeline()", "mock_run()")
-
-        # Provide a safe namespace
-        namespace = {
+        namespace: dict[str, Any] = {
             "__name__": "__main__",
-            "mock_run": mock_run
+            "run_pipeline": mock_run,
+            "logger": MagicMock(),
+            "Path": Path,
+            "sys": sys,
+            "subprocess": subprocess,
+            "initialize_ingestion_topology": MagicMock(),
+            "generate_bronze_ingestion_manifold": MagicMock(),
+            "run_dbt_command": MagicMock()
         }
 
-        exec(modified_block, namespace)
+        # Instead of replacing the import and dealing with syntax errors,
+        # let's just extract the exact `if __name__ == "__main__":` block to run it
+        block = ""
+        in_main = False
+        for line in code_text.split("\n"):
+            if line.startswith('if __name__ == "__main__":'):
+                in_main = True
+            if in_main:
+                block += line + "\n"
+
+        exec(compile(block, "coreason_etl_icd_9/main.py", "exec"), namespace)  # noqa: S102
+
         mock_run.assert_called_once()
