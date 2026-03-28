@@ -70,9 +70,7 @@ def run_pipeline() -> None:
 
     # 2. Transformation Phase (dbt)
     dbt_project_dir = Path(__file__).parent / "dbt"
-    logger.info(
-        "Starting dbt transformation phase", dbt_project_dir=str(dbt_project_dir)
-    )
+    logger.info("Starting dbt transformation phase", dbt_project_dir=str(dbt_project_dir))
 
     try:
         base_cmd = ["dbt", "--project-dir", str(dbt_project_dir)]
