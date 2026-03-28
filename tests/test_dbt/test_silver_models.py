@@ -18,7 +18,7 @@ def jinja_env() -> Environment:
 
     # Load the macro explicitly into the global context so templates can find it without dbt's context processor
     macro_template = env.get_template("format_icd9_code.sql")
-    env.globals["format_icd9_code"] = getattr(macro_template.module, "format_icd9_code")
+    env.globals["format_icd9_code"] = macro_template.module.format_icd9_code
 
     return env
 
