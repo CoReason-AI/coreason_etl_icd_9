@@ -1,9 +1,11 @@
 import io
 import zipfile
+from datetime import UTC
 
 import pytest
 import requests
 import requests_mock
+from pytest_mock import MockerFixture
 
 from coreason_etl_icd_9.extractor import FILENAME_DX, FILENAME_SG, fetch_and_extract_zip, parse_fixed_width_file
 
@@ -45,7 +47,7 @@ def test_fetch_and_extract_zip_bad_zip(requests_mock: requests_mock.Mocker) -> N
         fetch_and_extract_zip(url)
 
 
-def test_parse_fixed_width_file_success() -> None:
+def test_parse_fixed_width_file_success(mocker: MockerFixture) -> None:
     # 01234 678...
     # CODE  DESCRIPTION
     mock_content = (
@@ -59,24 +61,34 @@ def test_parse_fixed_width_file_success() -> None:
     zip_buffer = _create_mock_zip({FILENAME_DX: mock_content})
     archive = zipfile.ZipFile(zip_buffer)
 
+    from datetime import datetime, timezone
+
+    mock_now = datetime(2023, 1, 1, tzinfo=UTC)
+    mock_datetime = mocker.patch("coreason_etl_icd_9.extractor.datetime")
+    mock_datetime.now.return_value = mock_now
+    mock_datetime.timezone = timezone
+
     results = list(parse_fixed_width_file(archive, FILENAME_DX, "Diagnosis"))
 
     assert len(results) == 3
     assert results[0] == {
         "code_type": "Diagnosis",
+        "ingestion_ts": mock_now.isoformat(),
         "raw_data": {"raw_code": "12345", "raw_description": "Description for 12345"},
     }
     assert results[1] == {
         "code_type": "Diagnosis",
+        "ingestion_ts": mock_now.isoformat(),
         "raw_data": {"raw_code": "V123", "raw_description": "Description for V123"},
     }
     assert results[2] == {
         "code_type": "Diagnosis",
+        "ingestion_ts": mock_now.isoformat(),
         "raw_data": {"raw_code": "E1234", "raw_description": "Description for E1234"},
     }
 
 
-def test_parse_fixed_width_file_empty_code() -> None:
+def test_parse_fixed_width_file_empty_code(mocker: MockerFixture) -> None:
     mock_content = (
         "12345 Desc 1\n"
         "      Desc 2\n"  # Missing code
@@ -86,11 +98,20 @@ def test_parse_fixed_width_file_empty_code() -> None:
     zip_buffer = _create_mock_zip({FILENAME_DX: mock_content})
     archive = zipfile.ZipFile(zip_buffer)
 
+    from datetime import datetime, timezone
+
+    mock_now = datetime(2023, 1, 1, tzinfo=UTC)
+    mock_datetime = mocker.patch("coreason_etl_icd_9.extractor.datetime")
+    mock_datetime.now.return_value = mock_now
+    mock_datetime.timezone = timezone
+
     results = list(parse_fixed_width_file(archive, FILENAME_DX, "Diagnosis"))
 
     assert len(results) == 2
     assert results[0]["raw_data"]["raw_code"] == "12345"
+    assert results[0]["ingestion_ts"] == mock_now.isoformat()
     assert results[1]["raw_data"]["raw_code"] == "V123"
+    assert results[1]["ingestion_ts"] == mock_now.isoformat()
 
 
 def test_parse_fixed_width_file_missing_file() -> None:
