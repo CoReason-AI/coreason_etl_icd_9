@@ -26,13 +26,19 @@ models:
         description: "The raw clinical description, safely trimmed."
         tests:
           - not_null
-      - name: domain_type
-        description: "The ontological category ('Diagnosis' or 'Procedure')."
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['Diagnosis', 'Procedure']
+      - name: code_type
+        description: "Pass-through from Bronze. The ontological category ('Diagnosis' or 'Procedure')."
       - name: ingestion_ts
         description: "Timestamp of ingestion from the Bronze layer."
         tests:
           - not_null
+      - name: raw_data
+        description: "Pass-through JSONB field containing the raw dictionary with 'raw_code' and 'raw_description'."
+        tests:
+          - not_null
+      - name: domain_type
+        description: "Alias of code_type. The ontological category ('Diagnosis' or 'Procedure')."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Diagnosis', 'Procedure']
