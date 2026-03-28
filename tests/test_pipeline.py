@@ -37,18 +37,17 @@ def test_generate_bronze_ingestion_manifold_success(requests_mock: requests_mock
     results = list(resource)
 
     assert len(results) == 3
-    assert results[0] == {
-        "code_type": "Diagnosis",
-        "raw_data": {"raw_code": "12345", "raw_description": "Description DX 1"},
-    }
-    assert results[1] == {
-        "code_type": "Diagnosis",
-        "raw_data": {"raw_code": "V123", "raw_description": "Description DX 2"},
-    }
-    assert results[2] == {
-        "code_type": "Procedure",
-        "raw_data": {"raw_code": "67890", "raw_description": "Description SG 1"},
-    }
+    assert results[0]["code_type"] == "Diagnosis"
+    assert "ingestion_ts" in results[0]
+    assert results[0]["raw_data"] == {"raw_code": "12345", "raw_description": "Description DX 1"}
+
+    assert results[1]["code_type"] == "Diagnosis"
+    assert "ingestion_ts" in results[1]
+    assert results[1]["raw_data"] == {"raw_code": "V123", "raw_description": "Description DX 2"}
+
+    assert results[2]["code_type"] == "Procedure"
+    assert "ingestion_ts" in results[2]
+    assert results[2]["raw_data"] == {"raw_code": "67890", "raw_description": "Description SG 1"}
 
 
 def test_generate_bronze_ingestion_manifold_http_error(requests_mock: requests_mock.Mocker) -> None:

@@ -16,6 +16,7 @@ and defensive parsing logic for legacy ICD-9 fixed-width text files.
 import io
 import zipfile
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from typing import Any
 
 import requests
@@ -89,6 +90,9 @@ def parse_fixed_width_file(archive: zipfile.ZipFile, filename: str, domain_type:
         # (CMS uses varied encodings, latin-1 is safest for legacy text)
         text_stream = io.TextIOWrapper(file_handle, encoding="latin-1")
 
+        # Capture ingestion time for the current file parsing
+        ingestion_ts = datetime.now(UTC).isoformat()
+
         for line_number, raw_line in enumerate(text_stream, start=1):
             # Skip empty lines, typical of EOF or legacy anomalies
             if not raw_line.strip():
@@ -102,6 +106,10 @@ def parse_fixed_width_file(archive: zipfile.ZipFile, filename: str, domain_type:
                 logger.warning("Empty raw code identified during parsing; skipping line", line_number=line_number)
                 continue
 
-            yield {"code_type": domain_type, "raw_data": {"raw_code": raw_code, "raw_description": raw_description}}
+            yield {
+                "code_type": domain_type,
+                "ingestion_ts": ingestion_ts,
+                "raw_data": {"raw_code": raw_code, "raw_description": raw_description},
+            }
 
     logger.info("Completed parsing of fixed-width file", filename=filename, domain_type=domain_type)
