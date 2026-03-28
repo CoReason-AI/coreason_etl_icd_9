@@ -18,6 +18,10 @@ sources:
               - not_null
               - accepted_values:
                   values: ['Diagnosis', 'Procedure']
+          - name: ingestion_ts
+            description: "Timestamp of ingestion when the data was parsed."
+            tests:
+              - not_null
           - name: raw_data
             description: >
               JSONB field containing the raw dictionary with 'raw_code' and 'raw_description'.
