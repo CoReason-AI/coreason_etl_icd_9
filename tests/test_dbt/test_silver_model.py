@@ -40,4 +40,5 @@ def test_silver_model_compilation() -> None:
     assert "mock_generate_id(raw_code_string, domain_type) as coreason_id" in sql
     assert "formatted_icd9_code," in sql
     assert "long_description," in sql
-    assert "domain_type" in sql
+    assert "domain_type," in sql
+    assert "ingestion_ts" in sql

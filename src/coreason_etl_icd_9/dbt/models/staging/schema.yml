@@ -32,3 +32,7 @@ models:
           - not_null
           - accepted_values:
               values: ['Diagnosis', 'Procedure']
+      - name: ingestion_ts
+        description: "Timestamp of ingestion from the Bronze layer."
+        tests:
+          - not_null

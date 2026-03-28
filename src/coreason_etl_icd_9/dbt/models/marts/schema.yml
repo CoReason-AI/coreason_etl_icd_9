@@ -13,6 +13,10 @@ models:
       - name: long_description
         tests:
           - not_null
+      - name: ingestion_ts
+        description: "Timestamp of ingestion passed through from Bronze/Silver."
+        tests:
+          - not_null
 
   - name: gold_icd9_to_10_crosswalk_stub
     description: >
@@ -24,3 +28,7 @@ models:
           - not_null
       - name: target_icd10_code
       - name: map_type_flag
+      - name: ingestion_ts
+        description: "Timestamp of ingestion passed through from Bronze/Silver."
+        tests:
+          - not_null
