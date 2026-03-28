@@ -21,7 +21,7 @@ def test_gold_clinical_index_compilation() -> None:
     sql = " ".join(rendered.split())
 
     # Verify key CTEs and column logic
-    assert "select formatted_icd9_code, long_description" in sql
+    assert "select formatted_icd9_code, long_description, ingestion_ts" in sql
     assert "from mock_silver_icd9_ontology" in sql
 
 
@@ -45,5 +45,6 @@ def test_gold_crosswalk_stub_compilation() -> None:
     # Verify key CTEs and column logic
     assert "select formatted_icd9_code," in sql
     assert "cast(null as varchar(20)) as target_icd10_code," in sql
-    assert "cast(null as varchar(255)) as map_type_flag" in sql
+    assert "cast(null as varchar(255)) as map_type_flag," in sql
+    assert "ingestion_ts" in sql
     assert "from mock_silver_icd9_ontology" in sql
