@@ -13,14 +13,14 @@ AGENT INSTRUCTION: This module provides the purely deterministic dlt ingestion p
 to extract the legacy ICD-9 fixed-width text files and load them into the Bronze layer.
 """
 
+import zipfile
 from collections.abc import Iterator
 from typing import Any
 
 import dlt
-import requests
 
 from coreason_etl_icd_9.config import ICD9ConfigManifest
-from coreason_etl_icd_9.extractor import FILENAME_DX, FILENAME_SG, fetch_and_extract_zip, parse_fixed_width_file
+from coreason_etl_icd_9.extractor import fetch_and_extract_zip, parse_fixed_width_file
 from coreason_etl_icd_9.utils.logger import logger
 
 
@@ -34,20 +34,21 @@ def generate_bronze_ingestion_manifold() -> Iterator[dict[str, Any]]:
     logger.info("Starting Bronze layer ingestion manifold for ICD-9")
 
     config = ICD9ConfigManifest()
-    url = config.cms_zip_url
+    path = config.cms_zip_path
 
     try:
-        archive = fetch_and_extract_zip(url)
+        archive = fetch_and_extract_zip(path)
 
-        # Process Diagnosis Codes
-        yield from parse_fixed_width_file(archive, FILENAME_DX, "Diagnosis")
-
-        # Process Procedure Codes
-        yield from parse_fixed_width_file(archive, FILENAME_SG, "Procedure")
+        # Process dynamically matched files from the archive
+        for filename in archive.namelist():
+            if filename.endswith("DX.txt"):
+                yield from parse_fixed_width_file(archive, filename, "diagnosis")
+            elif filename.endswith("SG.txt"):
+                yield from parse_fixed_width_file(archive, filename, "procedure")
 
         logger.info("Successfully yielded all DX and SG codes for Bronze layer ingestion")
-    except requests.exceptions.HTTPError as e:
-        logger.exception("Failed to execute Bronze layer ingestion manifold due to HTTP error")
+    except zipfile.BadZipFile as e:
+        logger.exception("Failed to parse local file as a valid ZIP archive")
         raise e
     except Exception as e:
         logger.exception("Failed to execute Bronze layer ingestion manifold")

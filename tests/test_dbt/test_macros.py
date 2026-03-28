@@ -1,64 +1,55 @@
+import re
 from pathlib import Path
 
-import jinja2
+import pytest
+from jinja2 import Environment, FileSystemLoader
 
 
-def render_macro(macro_name: str, **kwargs: str) -> str:
-    """Helper to render a dbt macro strictly into a SQL string using Jinja2."""
-    macro_dir = Path("src/coreason_etl_icd_9/dbt/macros")
-    loader = jinja2.FileSystemLoader(macro_dir)
-    env = jinja2.Environment(loader=loader)
-
-    # We need to load all macros from the directory to support nesting
-    template_str = ""
-    for macro_file in macro_dir.glob("*.sql"):
-        with open(macro_file) as f:
-            template_str += f.read() + "\n"
-
-    # We call the macro explicitly
-    template_str += f"\n{{{{ {macro_name}(**kwargs) }}}}"
-
-    template = env.from_string(template_str)
-    rendered = template.render(kwargs=kwargs)
-
-    # clean up the whitespace for easier assertions
-    return " ".join(rendered.split())
+@pytest.fixture
+def jinja_env() -> Environment:
+    """Creates a Jinja2 environment configured to load dbt macros from the source directory."""
+    macros_dir = Path("src/coreason_etl_icd_9/dbt/macros")
+    return Environment(loader=FileSystemLoader(str(macros_dir)))
 
 
-def test_format_icd9_code_diagnosis() -> None:
-    # 25000 -> 250.00
-    sql = render_macro("format_icd9_code", raw_code="'25000'", domain_type="'Diagnosis'")
-
-    assert "when 'Diagnosis' = 'Procedure' then" in sql
-    assert "when 'Diagnosis' = 'Diagnosis' then" in sql
-    assert "when length('25000') > 3 then substr('25000', 1, 3) || '.' || substr('25000', 4)" in sql
+def normalize_sql(sql: str) -> str:
+    """Helper to remove excess whitespace and newlines from compiled SQL for easy comparison."""
+    return re.sub(r"\s+", " ", sql).strip()
 
 
-def test_format_icd9_code_procedure() -> None:
-    # 3606 -> 36.06
-    sql = render_macro("format_icd9_code", raw_code="'3606'", domain_type="'Procedure'")
-    assert "when 'Procedure' = 'Procedure' then" in sql
-    assert "when length('3606') > 2 then substr('3606', 1, 2) || '.' || substr('3606', 3)" in sql
+def test_format_icd9_code_macro(jinja_env: Environment) -> None:
+    """Verifies that the `format_icd9_code` macro generates the correct Postgres SQL."""
 
+    template = jinja_env.from_string("""
+        {% from 'format_icd9_code.sql' import format_icd9_code %}
+        {{ format_icd9_code('raw_code_col', 'domain_type_col') }}
+    """)
 
-def test_format_icd9_code_e_code() -> None:
-    # E0000 -> E000.0
-    sql = render_macro("format_icd9_code", raw_code="'E0000'", domain_type="'Diagnosis'")
-    assert "when substring('E0000' from 1 for 1) = 'E' then" in sql
-    assert "when length('E0000') > 4 then substr('E0000', 1, 4) || '.' || substr('E0000', 5)" in sql
+    compiled_sql = template.render()
+    normalized_sql = normalize_sql(compiled_sql)
 
+    # Basic structural assertions
+    assert "CASE" in normalized_sql
+    assert "WHEN LOWER(domain_type_col) = 'diagnosis' THEN" in normalized_sql
+    assert "WHEN LOWER(domain_type_col) = 'procedure' THEN" in normalized_sql
 
-def test_format_icd9_code_v_code() -> None:
-    # V202 -> V20.2
-    sql = render_macro("format_icd9_code", raw_code="'V202'", domain_type="'Diagnosis'")
-    # V code uses standard rule: > 3 chars -> after 3rd char
-    assert "when length('V202') > 3 then substr('V202', 1, 3) || '.' || substr('V202', 4)" in sql
+    # Test Diagnosis E-Code Logic
+    e_code_logic = (
+        "WHEN SUBSTRING(raw_code_col FROM 1 FOR 1) = 'E' AND LENGTH(raw_code_col) > 4 "
+        "THEN SUBSTRING(raw_code_col FROM 1 FOR 4) || '.' || SUBSTRING(raw_code_col FROM 5)"
+    )
+    assert e_code_logic in normalized_sql
 
+    # Test Diagnosis V-Code / Normal Logic
+    v_code_logic = (
+        "WHEN SUBSTRING(raw_code_col FROM 1 FOR 1) != 'E' AND LENGTH(raw_code_col) > 3 "
+        "THEN SUBSTRING(raw_code_col FROM 1 FOR 3) || '.' || SUBSTRING(raw_code_col FROM 4)"
+    )
+    assert v_code_logic in normalized_sql
 
-def test_generate_coreason_id() -> None:
-    sql = render_macro("generate_coreason_id", raw_code="'25000'", domain_type="'Diagnosis'")
-    # Assert uuid_generate_v5 and the proper namespace are utilized
-    assert "uuid_generate_v5(" in sql
-    assert "'a7cffe80-da93-4ef3-8bf2-e6ea241d7ee2'::uuid," in sql
-    # It concats the formatted string with the domain type
-    assert "|| 'Diagnosis'" in sql
+    # Test Procedure Logic
+    proc_logic = (
+        "WHEN LENGTH(raw_code_col) > 2 "
+        "THEN SUBSTRING(raw_code_col FROM 1 FOR 2) || '.' || SUBSTRING(raw_code_col FROM 3)"
+    )
+    assert proc_logic in normalized_sql

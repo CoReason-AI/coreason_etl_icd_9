@@ -17,45 +17,35 @@ import io
 import zipfile
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-import requests
-from pydantic import HttpUrl
+from pydantic import FilePath
 
 from coreason_etl_icd_9.utils.logger import logger
 
-# Hardcoded filenames within the CMS master ZIP based on business requirements.
-FILENAME_DX = "CMS32_DESC_LONG_DX.txt"
-FILENAME_SG = "CMS32_DESC_LONG_SG.txt"
 
-
-def fetch_and_extract_zip(url: HttpUrl | str) -> zipfile.ZipFile:
+def fetch_and_extract_zip(path: FilePath | str | Path) -> zipfile.ZipFile:
     """
-    Fetches the CMS ZIP file into memory and returns the opened ZipFile object.
+    Opens the CMS ZIP file from the local filesystem and returns the opened ZipFile object.
 
     Args:
-        url: The exact URL to download the ZIP archive.
+        path: The exact local path to the ZIP archive.
 
     Returns:
         A loaded `zipfile.ZipFile` instance containing the extracted text documents.
 
     Raises:
-        requests.HTTPError: If the remote server responds with a 4xx or 5xx code.
-        zipfile.BadZipFile: If the payload cannot be parsed as a valid ZIP archive.
+        zipfile.BadZipFile: If the file cannot be parsed as a valid ZIP archive.
     """
-    logger.info("Initiating download of ICD-9 master ZIP", url=str(url))
+    logger.info("Opening local ICD-9 master ZIP", path=str(path))
 
-    response = requests.get(str(url), timeout=30)
-    response.raise_for_status()
-
-    # In-memory buffer for the ZIP binary payload
-    zip_buffer = io.BytesIO(response.content)
     try:
-        archive = zipfile.ZipFile(zip_buffer)
+        archive = zipfile.ZipFile(path)
         logger.info("Successfully loaded ZIP archive into memory", num_files=len(archive.namelist()))
         return archive
     except zipfile.BadZipFile as e:
-        logger.error("Failed to parse downloaded payload as a valid ZIP archive", error=str(e))
+        logger.error("Failed to parse local file as a valid ZIP archive", error=str(e))
         raise
 
 

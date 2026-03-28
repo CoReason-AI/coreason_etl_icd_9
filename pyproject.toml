@@ -19,7 +19,6 @@ dependencies = [
     "loguru>=0.7.2",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",
-    "requests>=2.33.0",
 ]
 license = { file = "LICENSE" }
 classifiers = [
@@ -45,8 +44,6 @@ dev = [
     "types-pyyaml>=6.0.12.20250915",
     "tzdata>=2025.3",
     "pytest-xdist>=3.6.1",
-    "types-requests",
-    "requests-mock>=1.12.1",
     "pytest-mock>=3.15.1",
 ]
 
@@ -85,4 +82,4 @@ asyncio_mode = "auto"
 omit = ["tests/*"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["dbt-extractor", "dbt-core", "dbt-postgres", "dlt", "requests", "pydantic"]
+DEP002 = ["dbt-extractor", "dbt-core", "dbt-postgres", "dlt", "pydantic"]

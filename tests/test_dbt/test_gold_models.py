@@ -1,50 +1,65 @@
+import re
 from pathlib import Path
 
-import jinja2
+import pytest
+from jinja2 import Environment, FileSystemLoader
 
 
-def test_gold_clinical_index_compilation() -> None:
-    """Test that the gold_icd9_clinical_index model compiles to expected SQL structure."""
-    model_path = Path("src/coreason_etl_icd_9/dbt/models/marts/gold_icd9_clinical_index.sql")
+@pytest.fixture
+def jinja_env() -> Environment:
+    """Creates a Jinja2 environment configured to load Gold dbt models."""
+    models_dir = Path("src/coreason_etl_icd_9/dbt/models/gold")
+    env = Environment(loader=FileSystemLoader(str(models_dir)))
 
-    with open(model_path) as f:
-        template_str = f.read()
+    # Mock dbt config and ref functions
+    env.globals['config'] = lambda **_kwargs: ""
+    env.globals['ref'] = lambda table_name: f"test_schema.{table_name}"
 
-    def mock_ref(model_name: str) -> str:
-        return f"mock_{model_name}"
-
-    env = jinja2.Environment()
-    env.globals["ref"] = mock_ref
-
-    template = env.from_string(template_str)
-    rendered = template.render()
-    sql = " ".join(rendered.split())
-
-    # Verify key CTEs and column logic
-    assert "select formatted_icd9_code, long_description, ingestion_ts" in sql
-    assert "from mock_silver_icd9_ontology" in sql
+    return env
 
 
-def test_gold_crosswalk_stub_compilation() -> None:
-    """Test that the gold_icd9_to_10_crosswalk_stub model compiles to expected SQL structure."""
-    model_path = Path("src/coreason_etl_icd_9/dbt/models/marts/gold_icd9_to_10_crosswalk_stub.sql")
+def normalize_sql(sql: str) -> str:
+    """Helper to remove excess whitespace and newlines from compiled SQL for easy comparison."""
+    return re.sub(r"\s+", " ", sql).strip()
 
-    with open(model_path) as f:
-        template_str = f.read()
 
-    def mock_ref(model_name: str) -> str:
-        return f"mock_{model_name}"
+def test_gold_icd9_clinical_index_model(jinja_env: Environment) -> None:
+    """Verifies that the `gold_icd9_clinical_index` model selects all columns from Silver."""
 
-    env = jinja2.Environment()
-    env.globals["ref"] = mock_ref
+    template = jinja_env.get_template('gold_icd9_clinical_index.sql')
+    compiled_sql = template.render()
+    normalized_sql = normalize_sql(compiled_sql)
 
-    template = env.from_string(template_str)
-    rendered = template.render()
-    sql = " ".join(rendered.split())
+    # Verify FROM ref
+    assert "FROM test_schema.silver_icd9_ontology" in normalized_sql
 
-    # Verify key CTEs and column logic
-    assert "select formatted_icd9_code," in sql
-    assert "cast(null as varchar(20)) as target_icd10_code," in sql
-    assert "cast(null as varchar(255)) as map_type_flag," in sql
-    assert "ingestion_ts" in sql
-    assert "from mock_silver_icd9_ontology" in sql
+    # Verify exact lineage columns are present
+    assert "coreason_id," in normalized_sql
+    assert "formatted_icd9_code," in normalized_sql
+    assert "raw_code_string," in normalized_sql
+    assert "long_description," in normalized_sql
+    assert "domain_type," in normalized_sql
+    assert "code_type," in normalized_sql
+    assert "ingestion_ts," in normalized_sql
+    assert "raw_data" in normalized_sql
+
+
+def test_gold_icd9_to_10_crosswalk_stub_model(jinja_env: Environment) -> None:
+    """Verifies that the `gold_icd9_to_10_crosswalk_stub` model selects all columns from Silver."""
+
+    template = jinja_env.get_template('gold_icd9_to_10_crosswalk_stub.sql')
+    compiled_sql = template.render()
+    normalized_sql = normalize_sql(compiled_sql)
+
+    # Verify FROM ref
+    assert "FROM test_schema.silver_icd9_ontology" in normalized_sql
+
+    # Verify exact lineage columns are present
+    assert "coreason_id," in normalized_sql
+    assert "formatted_icd9_code," in normalized_sql
+    assert "raw_code_string," in normalized_sql
+    assert "long_description," in normalized_sql
+    assert "domain_type," in normalized_sql
+    assert "code_type," in normalized_sql
+    assert "ingestion_ts," in normalized_sql
+    assert "raw_data" in normalized_sql
