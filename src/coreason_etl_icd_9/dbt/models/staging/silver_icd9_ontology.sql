@@ -2,6 +2,7 @@ with raw_data as (
     select
         _dlt_id,
         code_type as domain_type,
+        ingestion_ts,
         -- Extract the fields from the flexible JSONB column and trim whitespace
         trim(raw_data->>'raw_code') as raw_code_string,
         trim(raw_data->>'raw_description') as long_description
@@ -22,5 +23,6 @@ select
     formatted_icd9_code,
     raw_code_string,
     long_description,
-    domain_type
+    domain_type,
+    ingestion_ts
 from formatted
