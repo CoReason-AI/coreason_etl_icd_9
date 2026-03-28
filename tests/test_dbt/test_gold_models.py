@@ -12,8 +12,8 @@ def jinja_env() -> Environment:
     env = Environment(loader=FileSystemLoader(str(models_dir)))
 
     # Mock dbt config and ref functions
-    env.globals['config'] = lambda **_kwargs: ""
-    env.globals['ref'] = lambda table_name: f"test_schema.{table_name}"
+    env.globals["config"] = lambda **_kwargs: ""
+    env.globals["ref"] = lambda table_name: f"test_schema.{table_name}"
 
     return env
 
@@ -26,7 +26,7 @@ def normalize_sql(sql: str) -> str:
 def test_gold_icd9_clinical_index_model(jinja_env: Environment) -> None:
     """Verifies that the `gold_icd9_clinical_index` model selects all columns from Silver."""
 
-    template = jinja_env.get_template('gold_icd9_clinical_index.sql')
+    template = jinja_env.get_template("gold_icd9_clinical_index.sql")
     compiled_sql = template.render()
     normalized_sql = normalize_sql(compiled_sql)
 
@@ -47,7 +47,7 @@ def test_gold_icd9_clinical_index_model(jinja_env: Environment) -> None:
 def test_gold_icd9_to_10_crosswalk_stub_model(jinja_env: Environment) -> None:
     """Verifies that the `gold_icd9_to_10_crosswalk_stub` model selects all columns from Silver."""
 
-    template = jinja_env.get_template('gold_icd9_to_10_crosswalk_stub.sql')
+    template = jinja_env.get_template("gold_icd9_to_10_crosswalk_stub.sql")
     compiled_sql = template.render()
     normalized_sql = normalize_sql(compiled_sql)
 

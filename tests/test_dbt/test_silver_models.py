@@ -13,12 +13,12 @@ def jinja_env() -> Environment:
     env = Environment(loader=FileSystemLoader([str(models_dir), str(macros_dir)]))
 
     # Mock dbt config, ref, and source functions
-    env.globals['config'] = lambda **_kwargs: ""
-    env.globals['source'] = lambda source_name, table_name: f"{source_name}.{table_name}"
+    env.globals["config"] = lambda **_kwargs: ""
+    env.globals["source"] = lambda source_name, table_name: f"{source_name}.{table_name}"
 
     # Load the macro explicitly into the global context so templates can find it without dbt's context processor
-    macro_template = env.get_template('format_icd9_code.sql')
-    env.globals['format_icd9_code'] = macro_template.module.format_icd9_code # type: ignore
+    macro_template = env.get_template("format_icd9_code.sql")
+    env.globals["format_icd9_code"] = macro_template.module.format_icd9_code
 
     return env
 
@@ -31,7 +31,7 @@ def normalize_sql(sql: str) -> str:
 def test_silver_icd9_ontology_model(jinja_env: Environment) -> None:
     """Verifies that the `silver_icd9_ontology` model generates the correct structural Postgres SQL."""
 
-    template = jinja_env.get_template('silver_icd9_ontology.sql')
+    template = jinja_env.get_template("silver_icd9_ontology.sql")
 
     compiled_sql = template.render()
     normalized_sql = normalize_sql(compiled_sql)
