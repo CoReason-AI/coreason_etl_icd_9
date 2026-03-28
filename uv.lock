@@ -142,7 +142,6 @@ dependencies = [
     { name = "loguru" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -159,11 +158,9 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "pytest-xdist" },
-    { name = "requests-mock" },
     { name = "ruff" },
     { name = "syrupy" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
     { name = "tzdata" },
     { name = "zensical" },
 ]
@@ -177,7 +174,6 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.13.1" },
-    { name = "requests", specifier = ">=2.33.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -194,11 +190,9 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "pytest-xdist", specifier = ">=3.6.1" },
-    { name = "requests-mock", specifier = ">=1.12.1" },
     { name = "ruff", specifier = ">=0.14.14" },
     { name = "syrupy" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
-    { name = "types-requests" },
     { name = "tzdata", specifier = ">=2025.3" },
     { name = "zensical" },
 ]
@@ -1483,18 +1477,6 @@ wheels = [
 ]
 
 [[package]]
-name = "requests-mock"
-version = "1.12.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/92/32/587625f91f9a0a3d84688bf9cfc4b2480a7e8ec327cefd0ff2ac891fd2cf/requests-mock-1.12.1.tar.gz", hash = "sha256:e9e12e333b525156e82a3c852f22016b9158220d2f47454de9cae8a77d371401", size = 60901, upload-time = "2024-03-29T03:54:29.446Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/ec/889fbc557727da0c34a33850950310240f2040f3b1955175fdb2b36a8910/requests_mock-1.12.1-py2.py3-none-any.whl", hash = "sha256:b1e37054004cdd5e56c84454cc7df12b25f90f382159087f4b6915aaeef39563", size = 27695, upload-time = "2024-03-29T03:54:27.64Z" },
-]
-
-[[package]]
 name = "requirements-parser"
 version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1751,18 +1733,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7e/69/3c51b36d04da19b92f9e815be12753125bd8bc247ba0470a982e6979e71c/types_pyyaml-6.0.12.20250915.tar.gz", hash = "sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3", size = 17522, upload-time = "2025-09-15T03:01:00.728Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/e0/1eed384f02555dde685fff1a1ac805c1c7dcb6dd019c916fe659b1c1f9ec/types_pyyaml-6.0.12.20250915-py3-none-any.whl", hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6", size = 20338, upload-time = "2025-09-15T03:00:59.218Z" },
-]
-
-[[package]]
-name = "types-requests"
-version = "2.32.4.20260324"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "urllib3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/b1/66bafdc85965e5aa3db42e1b9128bf8abe252edd7556d00a07ef437a3e0e/types_requests-2.32.4.20260324.tar.gz", hash = "sha256:33a2a9ccb1de7d4e4da36e347622c35418f6761269014cc32857acabd5df739e", size = 23765, upload-time = "2026-03-24T04:06:35.106Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/5a/ce5999f9bd72c7fac681d26cd0a5782b379053bfc2214e2a3fbe30852c9e/types_requests-2.32.4.20260324-py3-none-any.whl", hash = "sha256:f83ef2deb284fe99a249b8b0b0a3e4b9809e01ff456063c4df0aac7670c07ab9", size = 20735, upload-time = "2026-03-24T04:06:33.9Z" },
 ]
 
 [[package]]

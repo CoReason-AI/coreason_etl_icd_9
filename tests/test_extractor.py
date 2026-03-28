@@ -1,53 +1,38 @@
-import io
+import pathlib
 import zipfile
 from datetime import UTC
 
 import pytest
-import requests
-import requests_mock
 from pytest_mock import MockerFixture
 
-from coreason_etl_icd_9.extractor import FILENAME_DX, FILENAME_SG, fetch_and_extract_zip, parse_fixed_width_file
+from coreason_etl_icd_9.extractor import fetch_and_extract_zip, parse_fixed_width_file
 
 
-def _create_mock_zip(files_content: dict[str, str]) -> io.BytesIO:
+def _create_mock_zip(files_content: dict[str, str], path: pathlib.Path) -> None:
     """Helper to generate an in-memory ZIP file with given files and content."""
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for filename, content in files_content.items():
             archive.writestr(filename, content.encode("latin-1"))
-    buffer.seek(0)
-    return buffer
 
 
-def test_fetch_and_extract_zip_success(requests_mock: requests_mock.Mocker) -> None:
-    url = "https://example.com/mock.zip"
-    mock_zip_buffer = _create_mock_zip({"test.txt": "dummy content"})
+def test_fetch_and_extract_zip_success(tmp_path: pathlib.Path) -> None:
+    zip_path = tmp_path / "mock.zip"
+    _create_mock_zip({"test.txt": "dummy content"}, zip_path)
 
-    requests_mock.get(url, content=mock_zip_buffer.read())
-
-    archive = fetch_and_extract_zip(url)
+    archive = fetch_and_extract_zip(zip_path)
     assert isinstance(archive, zipfile.ZipFile)
     assert "test.txt" in archive.namelist()
 
 
-def test_fetch_and_extract_zip_http_error(requests_mock: requests_mock.Mocker) -> None:
-    url = "https://example.com/mock.zip"
-    requests_mock.get(url, status_code=404)
-
-    with pytest.raises(requests.HTTPError):
-        fetch_and_extract_zip(url)
-
-
-def test_fetch_and_extract_zip_bad_zip(requests_mock: requests_mock.Mocker) -> None:
-    url = "https://example.com/mock.zip"
-    requests_mock.get(url, content=b"this is not a zip file")
+def test_fetch_and_extract_zip_bad_zip(tmp_path: pathlib.Path) -> None:
+    zip_path = tmp_path / "mock.zip"
+    zip_path.write_bytes(b"this is not a zip file")
 
     with pytest.raises(zipfile.BadZipFile):
-        fetch_and_extract_zip(url)
+        fetch_and_extract_zip(zip_path)
 
 
-def test_parse_fixed_width_file_success(mocker: MockerFixture) -> None:
+def test_parse_fixed_width_file_success(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
     # 01234 678...
     # CODE  DESCRIPTION
     mock_content = (
@@ -58,8 +43,9 @@ def test_parse_fixed_width_file_success(mocker: MockerFixture) -> None:
         "  \n"  # Whitespace line
     )
 
-    zip_buffer = _create_mock_zip({FILENAME_DX: mock_content})
-    archive = zipfile.ZipFile(zip_buffer)
+    zip_path = tmp_path / "mock.zip"
+    _create_mock_zip({"CMS32_DESC_LONG_DX.txt": mock_content}, zip_path)
+    archive = zipfile.ZipFile(zip_path)
 
     from datetime import datetime, timezone
 
@@ -68,7 +54,7 @@ def test_parse_fixed_width_file_success(mocker: MockerFixture) -> None:
     mock_datetime.now.return_value = mock_now
     mock_datetime.timezone = timezone
 
-    results = list(parse_fixed_width_file(archive, FILENAME_DX, "Diagnosis"))
+    results = list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_DX.txt", "Diagnosis"))
 
     assert len(results) == 3
     assert results[0] == {
@@ -88,15 +74,16 @@ def test_parse_fixed_width_file_success(mocker: MockerFixture) -> None:
     }
 
 
-def test_parse_fixed_width_file_empty_code(mocker: MockerFixture) -> None:
+def test_parse_fixed_width_file_empty_code(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
     mock_content = (
         "12345 Desc 1\n"
         "      Desc 2\n"  # Missing code
         "V123  Desc 3\n"
     )
 
-    zip_buffer = _create_mock_zip({FILENAME_DX: mock_content})
-    archive = zipfile.ZipFile(zip_buffer)
+    zip_path = tmp_path / "mock.zip"
+    _create_mock_zip({"CMS32_DESC_LONG_DX.txt": mock_content}, zip_path)
+    archive = zipfile.ZipFile(zip_path)
 
     from datetime import datetime, timezone
 
@@ -105,7 +92,7 @@ def test_parse_fixed_width_file_empty_code(mocker: MockerFixture) -> None:
     mock_datetime.now.return_value = mock_now
     mock_datetime.timezone = timezone
 
-    results = list(parse_fixed_width_file(archive, FILENAME_DX, "Diagnosis"))
+    results = list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_DX.txt", "Diagnosis"))
 
     assert len(results) == 2
     assert results[0]["raw_data"]["raw_code"] == "12345"
@@ -114,9 +101,12 @@ def test_parse_fixed_width_file_empty_code(mocker: MockerFixture) -> None:
     assert results[1]["ingestion_ts"] == mock_now.isoformat()
 
 
-def test_parse_fixed_width_file_missing_file() -> None:
-    zip_buffer = _create_mock_zip({"wrong_file.txt": "content"})
-    archive = zipfile.ZipFile(zip_buffer)
+def test_parse_fixed_width_file_missing_file(tmp_path: pathlib.Path) -> None:
+    zip_path = tmp_path / "mock.zip"
+    _create_mock_zip({"wrong_file.txt": "content"}, zip_path)
+    archive = zipfile.ZipFile(zip_path)
 
-    with pytest.raises(KeyError, match=f"Missing expected file in ZIP: {FILENAME_SG}"):
-        list(parse_fixed_width_file(archive, FILENAME_SG, "Procedure"))
+    import re
+
+    with pytest.raises(KeyError, match=re.escape("Missing expected file in ZIP: CMS32_DESC_LONG_SG.txt")):
+        list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_SG.txt", "Procedure"))

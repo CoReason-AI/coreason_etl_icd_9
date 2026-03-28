@@ -1,30 +1,27 @@
 {% macro format_icd9_code(raw_code, domain_type) %}
     {#
-       AGENT INSTRUCTION: This macro reconstructs the clinical decimal point.
-       Rules:
-       - Diagnosis Rule: If code starts with 'E', place decimal after 4th char.
-         Else (including V or numbers), if > 3 chars, place decimal after 3rd char.
-       - Procedure Rule: Place decimal after 2nd char if > 2 chars.
+       AGENT INSTRUCTION: This macro handles the complex business logic of formatting legacy ICD-9 fixed-width strings.
+       It applies the "decimal rule" to place a period inside the code depending on whether it's a Diagnosis (DX) or Procedure (SG).
+       This is strictly executed inside Postgres to ensure deterministic analytical modeling in the Silver layer.
     #}
-    case
-        when {{ domain_type }} = 'Procedure' then
-            case
-                when length({{ raw_code }}) > 2 then substr({{ raw_code }}, 1, 2) || '.' || substr({{ raw_code }}, 3)
-                else {{ raw_code }}
-            end
-        when {{ domain_type }} = 'Diagnosis' then
-            case
-                when substring({{ raw_code }} from 1 for 1) = 'E' then
-                    case
-                        when length({{ raw_code }}) > 4 then substr({{ raw_code }}, 1, 4) || '.' || substr({{ raw_code }}, 5)
-                        else {{ raw_code }}
-                    end
-                else
-                    case
-                        when length({{ raw_code }}) > 3 then substr({{ raw_code }}, 1, 3) || '.' || substr({{ raw_code }}, 4)
-                        else {{ raw_code }}
-                    end
-            end
-        else {{ raw_code }}
-    end
+    CASE
+        WHEN LOWER({{ domain_type }}) = 'diagnosis' THEN
+            CASE
+                -- E-codes (External causes) have their decimal after the 4th character
+                WHEN SUBSTRING({{ raw_code }} FROM 1 FOR 1) = 'E' AND LENGTH({{ raw_code }}) > 4 THEN
+                    SUBSTRING({{ raw_code }} FROM 1 FOR 4) || '.' || SUBSTRING({{ raw_code }} FROM 5)
+                -- V-codes and normal numbers have their decimal after the 3rd character
+                WHEN SUBSTRING({{ raw_code }} FROM 1 FOR 1) != 'E' AND LENGTH({{ raw_code }}) > 3 THEN
+                    SUBSTRING({{ raw_code }} FROM 1 FOR 3) || '.' || SUBSTRING({{ raw_code }} FROM 4)
+                ELSE {{ raw_code }}
+            END
+        WHEN LOWER({{ domain_type }}) = 'procedure' THEN
+            CASE
+                -- Procedures have their decimal after the 2nd character
+                WHEN LENGTH({{ raw_code }}) > 2 THEN
+                    SUBSTRING({{ raw_code }} FROM 1 FOR 2) || '.' || SUBSTRING({{ raw_code }} FROM 3)
+                ELSE {{ raw_code }}
+            END
+        ELSE {{ raw_code }}
+    END
 {% endmacro %}

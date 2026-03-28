@@ -13,6 +13,7 @@ AGENT INSTRUCTION: This module provides comprehensive unit tests for the ICD9Con
 """
 
 import os
+import pathlib
 from unittest import mock
 from uuid import UUID
 
@@ -22,36 +23,40 @@ from pydantic import ValidationError
 from coreason_etl_icd_9.config import NAMESPACE_ICD9, ICD9ConfigManifest
 
 
-def test_icd9_config_manifest_defaults() -> None:
+def test_icd9_config_manifest_defaults(tmp_path: pathlib.Path) -> None:
     """Test that the default configuration values are properly applied."""
-    config = ICD9ConfigManifest()
-    assert (
-        str(config.cms_zip_url)
-        == "https://www.cms.gov/Medicare/Coding/ICD9ProviderDiagnosticCodes/Downloads/ICD-9-CM-v32-master-descriptions.zip"
-    )
-    assert config.namespace_uuid == NAMESPACE_ICD9
-    assert isinstance(config.namespace_uuid, UUID)
+    # We use tmp_path to mock the default env var to avoid hitting real filesystem
+    default_file = tmp_path / "ICD-9-CM-v32-master-descriptions.zip"
+    default_file.touch()
+
+    with mock.patch.dict(os.environ, {"ICD9_CMS_ZIP_PATH": str(default_file)}):
+        config = ICD9ConfigManifest()
+        assert str(config.cms_zip_path) == str(default_file)
+        assert config.namespace_uuid == NAMESPACE_ICD9
+        assert isinstance(config.namespace_uuid, UUID)
 
 
-def test_icd9_config_manifest_env_override() -> None:
+def test_icd9_config_manifest_env_override(tmp_path: pathlib.Path) -> None:
     """Test that the environment variables successfully override the defaults."""
-    custom_url = "https://example.com/custom.zip"
+    custom_file = tmp_path / "custom.zip"
+    custom_file.touch()
+
     custom_uuid = "123e4567-e89b-12d3-a456-426614174000"
 
-    with mock.patch.dict(os.environ, {"ICD9_CMS_ZIP_URL": custom_url, "ICD9_NAMESPACE_UUID": custom_uuid}):
+    with mock.patch.dict(os.environ, {"ICD9_CMS_ZIP_PATH": str(custom_file), "ICD9_NAMESPACE_UUID": custom_uuid}):
         config = ICD9ConfigManifest()
-        assert str(config.cms_zip_url) == custom_url
+        assert str(config.cms_zip_path) == str(custom_file)
         assert config.namespace_uuid == UUID(custom_uuid)
 
 
-def test_icd9_config_manifest_invalid_url() -> None:
-    """Test that providing an invalid URL throws a ValidationError."""
-    invalid_url = "not-a-valid-url"
+def test_icd9_config_manifest_invalid_path() -> None:
+    """Test that providing an invalid path throws a ValidationError."""
+    invalid_path = "not-a-valid-path.zip"
 
-    with mock.patch.dict(os.environ, {"ICD9_CMS_ZIP_URL": invalid_url}):
+    with mock.patch.dict(os.environ, {"ICD9_CMS_ZIP_PATH": invalid_path}):
         with pytest.raises(ValidationError) as exc_info:
             ICD9ConfigManifest()
-        assert "cms_zip_url" in str(exc_info.value)
+        assert "cms_zip_path" in str(exc_info.value)
 
 
 def test_icd9_config_manifest_invalid_uuid() -> None:
