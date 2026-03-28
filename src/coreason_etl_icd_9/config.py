@@ -15,7 +15,7 @@ AGENT INSTRUCTION: This module defines the strict configuration state for the IC
 from typing import Final
 from uuid import UUID
 
-from pydantic import Field, HttpUrl
+from pydantic import Field, FilePath
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Hardcoded base namespace UUIDv4 as a constant for identity resolution
@@ -35,12 +35,10 @@ class ICD9ConfigManifest(BaseSettings):
         extra="ignore",
     )
 
-    cms_zip_url: HttpUrl = Field(
-        default=HttpUrl(
-            "https://www.cms.gov/Medicare/Coding/ICD9ProviderDiagnosticCodes/Downloads/ICD-9-CM-v32-master-descriptions.zip"
-        ),
+    cms_zip_path: FilePath = Field(
+        default=FilePath("data/ICD-9-CM-v32-master-descriptions.zip"),
         description=(
-            "The target URL to download the CMS ICD-9 master ZIP file, "
+            "The target local file path to the CMS ICD-9 master ZIP file, "
             "containing both Diagnosis (DX) and Procedure (SG) descriptions."
         ),
     )
