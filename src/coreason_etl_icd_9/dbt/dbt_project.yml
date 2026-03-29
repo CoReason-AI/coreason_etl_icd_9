@@ -31,9 +31,9 @@ clean-targets:
 models:
   coreason_etl_icd9:
     # Applying strict materialization policies per Medallion architecture
-    staging:
+    silver:
       +schema: silver
       +materialized: view
-    marts:
+    gold:
       +schema: gold
       +materialized: table
