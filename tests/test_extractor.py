@@ -110,3 +110,33 @@ def test_parse_fixed_width_file_missing_file(tmp_path: pathlib.Path) -> None:
 
     with pytest.raises(KeyError, match=re.escape("Missing expected file in ZIP: CMS32_DESC_LONG_SG.txt")):
         list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_SG.txt", "Procedure"))
+
+
+def test_parse_fixed_width_file_edge_cases(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
+    # 01234 678...
+    mock_content = (
+        "1     Short\n"  # Very short code
+        "123   \n"  # Missing description
+        "ABCDE Description without space\n"  # Code is exactly 5 chars, description starts right after
+    )
+
+    zip_path = tmp_path / "mock.zip"
+    _create_mock_zip({"CMS32_DESC_LONG_DX.txt": mock_content}, zip_path)
+    archive = zipfile.ZipFile(zip_path)
+
+    from datetime import datetime, timezone
+
+    mock_now = datetime(2023, 1, 1, tzinfo=UTC)
+    mock_datetime = mocker.patch("coreason_etl_icd_9.extractor.datetime")
+    mock_datetime.now.return_value = mock_now
+    mock_datetime.timezone = timezone
+
+    results = list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_DX.txt", "Diagnosis"))
+
+    assert len(results) == 3
+    assert results[0]["raw_data"]["raw_code"] == "1"
+    assert results[0]["raw_data"]["raw_description"] == "Short"
+    assert results[1]["raw_data"]["raw_code"] == "123"
+    assert results[1]["raw_data"]["raw_description"] == ""
+    assert results[2]["raw_data"]["raw_code"] == "ABCDE"
+    assert results[2]["raw_data"]["raw_description"] == "Description without space"

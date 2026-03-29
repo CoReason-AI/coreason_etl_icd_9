@@ -53,3 +53,35 @@ def test_format_icd9_code_macro(jinja_env: Environment) -> None:
         "THEN SUBSTRING(raw_code_col FROM 1 FOR 2) || '.' || SUBSTRING(raw_code_col FROM 3)"
     )
     assert proc_logic in normalized_sql
+
+
+def test_format_icd9_code_macro_edge_cases(jinja_env: Environment) -> None:
+    """Tests that the `format_icd9_code` macro generates correct SQL with specific edge cases."""
+
+    # We will simulate the execution of the SQL macro with string inputs.
+    # While we cannot easily *run* the SQL in Postgres here, we can confirm the structure for literal edge cases.
+
+    template = jinja_env.from_string("""
+        {% from 'format_icd9_code.sql' import format_icd9_code %}
+        {{ format_icd9_code("'E123'", "'diagnosis'") }}
+        {{ format_icd9_code("'E12345'", "'diagnosis'") }}
+        {{ format_icd9_code("'V12'", "'diagnosis'") }}
+        {{ format_icd9_code("'V1234'", "'diagnosis'") }}
+        {{ format_icd9_code("'12'", "'procedure'") }}
+        {{ format_icd9_code("'1234'", "'procedure'") }}
+        {{ format_icd9_code("'1234'", "'unknown'") }}
+    """)
+    compiled_sql = template.render()
+    normalized_sql = normalize_sql(compiled_sql)
+
+    assert "CASE WHEN LOWER('diagnosis') = 'diagnosis'" in normalized_sql
+    assert "WHEN SUBSTRING('E123' FROM 1 FOR 1) = 'E' AND LENGTH('E123') > 4" in normalized_sql
+    assert "WHEN SUBSTRING('E12345' FROM 1 FOR 1) = 'E' AND LENGTH('E12345') > 4" in normalized_sql
+    assert "WHEN SUBSTRING('V12' FROM 1 FOR 1) != 'E' AND LENGTH('V12') > 3" in normalized_sql
+    assert "WHEN SUBSTRING('V1234' FROM 1 FOR 1) != 'E' AND LENGTH('V1234') > 3" in normalized_sql
+
+    assert "WHEN LOWER('procedure') = 'procedure'" in normalized_sql
+    assert "WHEN LENGTH('12') > 2" in normalized_sql
+    assert "WHEN LENGTH('1234') > 2" in normalized_sql
+
+    assert "ELSE '1234'" in normalized_sql
