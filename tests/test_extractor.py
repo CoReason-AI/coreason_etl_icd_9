@@ -17,6 +17,17 @@ def _create_mock_zip(files_content: dict[str, str], path: pathlib.Path) -> None:
             archive.writestr(filename, content.encode("latin-1", errors="replace"))
 
 
+@pytest.fixture
+def mock_now(mocker: MockerFixture) -> str:
+    from datetime import datetime, timezone
+
+    now = datetime(2023, 1, 1, tzinfo=UTC)
+    mock_datetime = mocker.patch("coreason_etl_icd_9.extractor.datetime")
+    mock_datetime.now.return_value = now
+    mock_datetime.timezone = timezone
+    return now.isoformat()
+
+
 def test_fetch_and_extract_zip_success(tmp_path: pathlib.Path) -> None:
     zip_path = tmp_path / "mock.zip"
     _create_mock_zip({"test.txt": "dummy content"}, zip_path)
@@ -34,7 +45,7 @@ def test_fetch_and_extract_zip_bad_zip(tmp_path: pathlib.Path) -> None:
         fetch_and_extract_zip(zip_path)
 
 
-def test_parse_fixed_width_file_success(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
+def test_parse_fixed_width_file_success(mock_now: str, tmp_path: pathlib.Path) -> None:
     # 01234 678...
     # CODE  DESCRIPTION
     mock_content = (
@@ -49,34 +60,27 @@ def test_parse_fixed_width_file_success(mocker: MockerFixture, tmp_path: pathlib
     _create_mock_zip({"CMS32_DESC_LONG_DX.txt": mock_content}, zip_path)
     archive = zipfile.ZipFile(zip_path)
 
-    from datetime import datetime, timezone
-
-    mock_now = datetime(2023, 1, 1, tzinfo=UTC)
-    mock_datetime = mocker.patch("coreason_etl_icd_9.extractor.datetime")
-    mock_datetime.now.return_value = mock_now
-    mock_datetime.timezone = timezone
-
     results = list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_DX.txt", "Diagnosis"))
 
     assert len(results) == 3
     assert results[0] == {
         "code_type": "Diagnosis",
-        "ingestion_ts": mock_now.isoformat(),
+        "ingestion_ts": mock_now,
         "raw_data": {"raw_code": "12345", "raw_description": "Description for 12345"},
     }
     assert results[1] == {
         "code_type": "Diagnosis",
-        "ingestion_ts": mock_now.isoformat(),
+        "ingestion_ts": mock_now,
         "raw_data": {"raw_code": "V123", "raw_description": "Description for V123"},
     }
     assert results[2] == {
         "code_type": "Diagnosis",
-        "ingestion_ts": mock_now.isoformat(),
+        "ingestion_ts": mock_now,
         "raw_data": {"raw_code": "E1234", "raw_description": "Description for E1234"},
     }
 
 
-def test_parse_fixed_width_file_empty_code(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
+def test_parse_fixed_width_file_empty_code(mock_now: str, tmp_path: pathlib.Path) -> None:
     mock_content = (
         "12345 Desc 1\n"
         "      Desc 2\n"  # Missing code
@@ -87,20 +91,13 @@ def test_parse_fixed_width_file_empty_code(mocker: MockerFixture, tmp_path: path
     _create_mock_zip({"CMS32_DESC_LONG_DX.txt": mock_content}, zip_path)
     archive = zipfile.ZipFile(zip_path)
 
-    from datetime import datetime, timezone
-
-    mock_now = datetime(2023, 1, 1, tzinfo=UTC)
-    mock_datetime = mocker.patch("coreason_etl_icd_9.extractor.datetime")
-    mock_datetime.now.return_value = mock_now
-    mock_datetime.timezone = timezone
-
     results = list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_DX.txt", "Diagnosis"))
 
     assert len(results) == 2
     assert results[0]["raw_data"]["raw_code"] == "12345"
-    assert results[0]["ingestion_ts"] == mock_now.isoformat()
+    assert results[0]["ingestion_ts"] == mock_now
     assert results[1]["raw_data"]["raw_code"] == "V123"
-    assert results[1]["ingestion_ts"] == mock_now.isoformat()
+    assert results[1]["ingestion_ts"] == mock_now
 
 
 def test_parse_fixed_width_file_missing_file(tmp_path: pathlib.Path) -> None:
@@ -114,7 +111,7 @@ def test_parse_fixed_width_file_missing_file(tmp_path: pathlib.Path) -> None:
         list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_SG.txt", "Procedure"))
 
 
-def test_parse_fixed_width_file_edge_cases(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
+def test_parse_fixed_width_file_edge_cases(tmp_path: pathlib.Path) -> None:
     # 01234 678...
     mock_content = (
         "1     Short\n"  # Very short code
@@ -125,13 +122,6 @@ def test_parse_fixed_width_file_edge_cases(mocker: MockerFixture, tmp_path: path
     zip_path = tmp_path / "mock.zip"
     _create_mock_zip({"CMS32_DESC_LONG_DX.txt": mock_content}, zip_path)
     archive = zipfile.ZipFile(zip_path)
-
-    from datetime import datetime, timezone
-
-    mock_now = datetime(2023, 1, 1, tzinfo=UTC)
-    mock_datetime = mocker.patch("coreason_etl_icd_9.extractor.datetime")
-    mock_datetime.now.return_value = mock_now
-    mock_datetime.timezone = timezone
 
     results = list(parse_fixed_width_file(archive, "CMS32_DESC_LONG_DX.txt", "Diagnosis"))
 
