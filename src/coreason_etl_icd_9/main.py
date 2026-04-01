@@ -1,18 +1,4 @@
-# Copyright (c) 2026 CoReason, Inc.
-#
-# This software is proprietary and dual-licensed.
-# Licensed under the Prosperity Public License 3.0 (the "License").
-# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
-# For details, see the LICENSE file.
-# Commercial use beyond a 30-day trial requires a separate license.
-#
-# Source Code: https://github.com/CoReason-AI/coreason_etl_icd_9
-
-"""
-AGENT INSTRUCTION: This module is the main entry point to run the ICD-9 ETL Pipeline.
-It orchestrates the 'dlt' ingestion and 'dbt' transformation phases.
-"""
-
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -23,36 +9,28 @@ from coreason_etl_icd_9.pipeline import (
 )
 from coreason_etl_icd_9.utils.logger import logger
 
-
 def run_dbt_command(command: list[str], cwd: Path) -> None:
-    """
-    Executes a dbt command via subprocess in the specified directory.
-    """
-    logger.info("Executing dbt command", command=" ".join(command))
+    logger.info(f"Executing dbt command: {' '.join(command)}")
+    
+    # Ensure dbt uses the profiles.yml located in the current directory
+    env = os.environ.copy()
+    env["DBT_PROFILES_DIR"] = str(cwd)
+    
     try:
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             command,
             cwd=cwd,
+            env=env,
             check=True,
             capture_output=True,
             text=True,
         )
-        logger.info("dbt command succeeded", output=result.stdout)
+        logger.info(f"dbt command succeeded\n{result.stdout}")
     except subprocess.CalledProcessError as e:
-        logger.error(
-            "dbt command failed",
-            command=" ".join(command),
-            error=e.stderr,
-            output=e.stdout,
-        )
+        logger.error(f"dbt command failed\nError: {e.stderr}\nOutput: {e.stdout}")
         raise
 
-
 def run_pipeline() -> None:
-    """
-    Orchestrates the entire ICD-9 ETL pipeline.
-    Executes the dlt ingestion first, then the dbt transformations.
-    """
     logger.info("Starting ICD-9 ETL Pipeline orchestration")
 
     # 1. Ingestion Phase (dlt)
@@ -61,7 +39,6 @@ def run_pipeline() -> None:
         pipeline = initialize_ingestion_topology()
 
         logger.info("Executing Bronze layer ingestion manifold")
-        # Run dlt ingestion
         pipeline.run(generate_bronze_ingestion_manifold())
         logger.info("dlt ingestion completed successfully")
     except Exception:
@@ -70,13 +47,13 @@ def run_pipeline() -> None:
 
     # 2. Transformation Phase (dbt)
     dbt_project_dir = Path(__file__).parent / "dbt"
-    logger.info("Starting dbt transformation phase", dbt_project_dir=str(dbt_project_dir))
+    logger.info(f"Starting dbt transformation phase in {dbt_project_dir}")
 
     try:
-        base_cmd = ["dbt", "--project-dir", str(dbt_project_dir)]
-        run_dbt_command([*base_cmd, "deps"], cwd=dbt_project_dir)
-        run_dbt_command([*base_cmd, "run"], cwd=dbt_project_dir)
-        run_dbt_command([*base_cmd, "test"], cwd=dbt_project_dir)
+        # Removed redundant --project-dir flag
+        run_dbt_command(["dbt", "deps"], cwd=dbt_project_dir)
+        run_dbt_command(["dbt", "run"], cwd=dbt_project_dir)
+        run_dbt_command(["dbt", "test"], cwd=dbt_project_dir)
         logger.info("dbt transformation phase completed successfully")
     except Exception:
         logger.exception("dbt transformation phase failed.")
@@ -84,6 +61,5 @@ def run_pipeline() -> None:
 
     logger.info("ICD-9 ETL Pipeline completed successfully")
 
-
 if __name__ == "__main__":
-    run_pipeline()  # pragma: no cover
+    run_pipeline()

@@ -1,15 +1,5 @@
 version: 2
-
 sources:
   - name: bronze
-    description: "The raw JSONB data landed by dlt."
     tables:
       - name: icd9_cm_raw
-        description: "Raw ICD-9 codes extracted from CMS master descriptions zip."
-        columns:
-          - name: code_type
-            description: "The domain category: 'diagnosis' or 'procedure'."
-          - name: ingestion_ts
-            description: "The exact UTC timestamp the file was processed by dlt."
-          - name: raw_data
-            description: "The JSONB blob containing raw_code and raw_description."
