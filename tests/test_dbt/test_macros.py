@@ -70,6 +70,9 @@ def test_format_icd9_code_macro_edge_cases(jinja_env: Environment) -> None:
         {{ format_icd9_code("'12'", "'procedure'") }}
         {{ format_icd9_code("'1234'", "'procedure'") }}
         {{ format_icd9_code("'1234'", "'unknown'") }}
+        {{ format_icd9_code("NULL", "NULL") }}
+        {{ format_icd9_code("''", "''") }}
+        {{ format_icd9_code("'A B C D E'", "'diagnosis'") }}
     """)
     compiled_sql = template.render()
     normalized_sql = normalize_sql(compiled_sql)
@@ -85,3 +88,11 @@ def test_format_icd9_code_macro_edge_cases(jinja_env: Environment) -> None:
     assert "WHEN LENGTH('1234') > 2" in normalized_sql
 
     assert "ELSE '1234'" in normalized_sql
+
+    # Edge cases
+    assert "WHEN LOWER(NULL) = 'diagnosis'" in normalized_sql
+    assert "WHEN LOWER('') = 'diagnosis'" in normalized_sql
+    assert (
+        "WHEN SUBSTRING('A B C D E' FROM 1 FOR 1) != 'E' AND LENGTH('A B C D E') > 3 THEN "
+        "SUBSTRING('A B C D E' FROM 1 FOR 3) || '.' || SUBSTRING('A B C D E' FROM 4)"
+    ) in normalized_sql
