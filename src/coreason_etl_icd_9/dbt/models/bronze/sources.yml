@@ -1,0 +1,5 @@
+version: 2
+sources:
+  - name: bronze
+    tables:
+      - name: icd9_cm_raw

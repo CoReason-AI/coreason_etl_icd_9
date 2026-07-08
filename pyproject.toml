@@ -12,7 +12,13 @@ authors = [
     { name = "Akshaya M", email = "akshaya.movvar@coreason.ai" },
 ]
 dependencies = [
+    "dbt-core>=1.11.7",
+    "dbt-extractor>=0.6.0",
+    "dbt-postgres>=1.10.0",
+    "dlt>=1.24.0",
     "loguru>=0.7.2",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
 ]
 license = { file = "LICENSE" }
 classifiers = [
@@ -37,7 +43,8 @@ dev = [
     "mkdocstrings-python",
     "types-pyyaml>=6.0.12.20250915",
     "tzdata>=2025.3",
-    "pytest-xdist>=3.6.1"
+    "pytest-xdist>=3.6.1",
+    "pytest-mock>=3.15.1",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -57,7 +64,7 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "UP", "SIM", "RUF", "ARG", "C4", "PT", "TCH", "FA", "PIE", "RET", "PERF", "FURB", "LOG", "N", "A", "S"]
-ignore = ["S101", "TC001", "TC002", "TC003", "UP037"]
+ignore = ["S101", "S701", "TC001", "TC002", "TC003", "UP037"]
 
 [tool.mypy]
 python_version = "3.14"
@@ -73,3 +80,6 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 omit = ["tests/*"]
+
+[tool.deptry.per_rule_ignores]
+DEP002 = ["dbt-extractor", "dbt-core", "dbt-postgres", "dlt", "pydantic"]
